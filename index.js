@@ -2,6 +2,7 @@
 const Vision = require('@google-cloud/vision');
 const fs = require('fs');
 const lineReader = require('line-reader');
+var async = require("async");
 
 // Instantiates a client
 const credentials = [
@@ -35,13 +36,12 @@ const OCRList = 'units.list';
 const inputDir = 'input_images/';
 const outputDir = 'output/';
 
-
-lineReader.eachLine(OCRList, 'utf8', function (imgFullname, last) {
+function google_vision_api(imgFullname, callback) {
   var regex = /([^\/]+)$/;
   var match = imgFullname.match(regex);
   var filename = match[0];
   const inputFilename = inputDir + filename;
-  const outputFilename = outputDir + filename +'.json';
+  const outputFilename = outputDir + filename + '.json';
   console.log('Detecting text on: ' + inputFilename);
 
   // Performs text detection on the local file
@@ -55,10 +55,15 @@ lineReader.eachLine(OCRList, 'utf8', function (imgFullname, last) {
           return console.log(err);
         }
         console.log('Write result to: ' + outputFilename);
+        callback();
       });
     })
     .catch((err) => {
       console.error('Vision API ERROR:', err);
     });
+}
+var queue = async.queue(google_vision_api, 10);
 
+lineReader.eachLine(OCRList, 'utf8', function (imgFullname, last) {
+  queue.push(imgFullname);
 });
