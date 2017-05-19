@@ -30,31 +30,35 @@ const options = {
 };
 
 // open OCR list file
-var OCRList = "units.list";
-var encode = "utf8";
+const OCRList = 'units.list';
+// Put images in this directory
+const inputDir = 'input_images/';
+const outputDir = 'output/';
 
-lineReader.eachLine(OCRList, encode, function (imgFullname, last) {
+
+lineReader.eachLine(OCRList, 'utf8', function (imgFullname, last) {
   var regex = /([^\/]+)$/;
   var match = imgFullname.match(regex);
   var filename = match[0];
-  console.log(imgFullname);
-
-  var outputName = "./OCRText/" + filename + ".txt";
-  console.log("Recognition to " + outputName);
+  const inputFilename = inputDir + filename;
+  const outputFilename = outputDir + filename +'.json';
+  console.log('Detecting text on: ' + inputFilename);
 
   // Performs text detection on the local file
-  vision.detectText(imgFullname, options)
+  vision.detectText(inputDir + imgFullname, options)
     .then((results) => {
       const detections = results[0];
       //detections.forEach((text) => console.log(text));
-
-      fs.writeFile(outputName, detections, function (err) {
+      //console.log(JSON.stringify(results));
+      fs.writeFile(outputFilename, JSON.stringify(results), function (err) {
         if (err) {
           return console.log(err);
         }
+        console.log('Write result to: ' + outputFilename);
       });
     })
     .catch((err) => {
-      console.error('ERROR:', err);
+      console.error('Vision API ERROR:', err);
     });
+
 });
