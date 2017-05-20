@@ -36,32 +36,71 @@ const OCRList = 'units.list';
 const inputDir = 'input_images/';
 const outputDir = 'output/';
 
-function google_vision_api(imgFullname, callback) {
-  var regex = /([^\/]+)$/;
-  var match = imgFullname.match(regex);
-  var filename = match[0];
-  const inputFilename = inputDir + filename;
-  const outputFilename = outputDir + filename + '.json';
-  console.log('Detecting text on: ' + inputFilename);
+function google_vision_api(imgFullname, vision_callback) {
+  async.waterfall([
+    // Check file existence
+    (callback) => {
+      var regex = /([^\/]+)$/;
+      var match = imgFullname.match(regex);
+      var filename = match[0];
+      const inputFilename = inputDir + filename;
+      const outputFilename = outputDir + filename + '.json';
 
-  // Performs text detection on the local file
-  vision.detectText(inputDir + imgFullname, options)
-    .then((results) => {
-      const detections = results[0];
-      //detections.forEach((text) => console.log(text));
-      //console.log(JSON.stringify(results));
+      if (fs.existsSync(outputFilename)) {
+        const err = '!!! Abort, file already exist ' + outputFilename;
+        callback(err);
+      }
+      else {
+        callback(null, inputFilename, outputFilename);
+      }
+    },
+    // Do text detection
+    function (inputFilename, outputFilename, callback) {
+      console.log('<-- Detecting text on: ' + inputFilename);
+
+      vision.detectText(inputFilename, options)
+        .then((results) => {
+          const detections = results[0];
+          //detections.forEach((text) => console.log(text));
+          //console.log(JSON.stringify(results));
+          callback(null, results, outputFilename);
+        })
+        .catch((err) => {
+          console.error('!!! ' + '\nVision API ERROR:', err);
+          callback(err);
+        })
+    },
+
+    // Write detection result to file
+    (results, outputFilename, callback) => {
+      console.log('--> Write result to: ' + outputFilename);
+
       fs.writeFile(outputFilename, JSON.stringify(results), function (err) {
         if (err) {
-          return console.log(err);
+          callback(err);
         }
-        console.log('Write result to: ' + outputFilename);
-        callback();
+        else {
+          callback(null, 'done');
+        }
       });
-    })
-    .catch((err) => {
-      console.error('Vision API ERROR:', err);
-    });
+    }
+  ],
+
+    (err, status) => {
+      // if the above try/catche catches something, we will end up here
+      // otherwise we will receive 'done' as the value of status
+      // after the third function has finished
+      if (err) {
+        console.log(err);
+      }
+      else {
+      console.log('status: ' + status);
+      }
+      vision_callback();
+    }
+  );
 }
+
 var queue = async.queue(google_vision_api, 10);
 
 lineReader.eachLine(OCRList, 'utf8', function (imgFullname, last) {
